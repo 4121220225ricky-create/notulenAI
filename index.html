@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Notulensi AI — Transkripsi & Notulensi Rapat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ── Tokens ── */
+:root {
+  --bg:#0f1117; --bg-card:#181c27; --bg-input:#1e2335; --bg-hover:#232840;
+  --border:#2a3050; --border-light:#374060;
+  --accent:#4f8ef7; --accent-dim:#2a4a8a; --accent-glow:rgba(79,142,247,0.15);
+  --success:#34c784; --warning:#f7b84f; --error:#f75858;
+  --text-1:#eef0f8; --text-2:#a0aac4; --text-3:#626880;
+  --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono','Fira Code',monospace;
+  --r:10px; --r-lg:16px; --shadow:0 4px 24px rgba(0,0,0,.4); --t:.18s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{font-family:var(--sans);background:var(--bg);color:var(--text-1);min-height:100vh;line-height:1.6;overflow:hidden}
+
+/* ── Layout ── */
+.app-header{background:var(--bg-card);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;height:52px}
+.app-logo{font-size:1.25rem;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:8px}
+.app-logo span{color:var(--text-1)}
+.app-subtitle{color:var(--text-3);font-size:.8rem;margin-left:auto}
+.app-body{display:grid;grid-template-columns:290px 1fr;height:calc(100vh - 52px)}
+
+/* ── Sidebar ── */
+.sidebar{background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-top{padding:14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.drop-zone{border:2px dashed var(--border-light);border-radius:var(--r-lg);padding:18px 12px;text-align:center;cursor:pointer;transition:var(--t)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-glow)}
+.drop-icon{font-size:1.8rem;display:block;margin-bottom:4px}
+.drop-title{font-size:.85rem;font-weight:600;color:var(--text-1);margin-bottom:2px}
+.drop-sub{font-size:.73rem;color:var(--text-3)}
+.drop-formats{font-size:.68rem;color:var(--text-3);margin-top:5px}
+.sidebar-actions{padding:8px 12px;display:flex;gap:6px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.file-list{flex:1;overflow-y:auto;padding:6px}
+.file-list::-webkit-scrollbar{width:3px}
+.file-list::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:3px}
+.file-list-empty{color:var(--text-3);font-size:.78rem;text-align:center;padding:20px 8px}
+.file-item{border-radius:var(--r);padding:8px 10px;cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:var(--t)}
+.file-item:hover{background:var(--bg-hover)}
+.file-item.active{background:var(--accent-glow);border-color:var(--accent-dim)}
+.file-item-header{display:flex;align-items:center;gap:5px}
+.file-status-icon{font-size:.8rem;flex-shrink:0}
+.file-name{font-size:.78rem;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-remove-btn{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:1rem;line-height:1;padding:0 3px;border-radius:4px;transition:var(--t)}
+.file-remove-btn:hover{color:var(--error);background:rgba(247,88,88,.1)}
+.file-meta{font-size:.68rem;color:var(--text-3);margin-top:2px;padding-left:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-progress-bar{height:2px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden}
+.file-progress-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease}
+.file-item.processing .file-status-icon{display:inline-block;animation:spin 1.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Main ── */
+.main-content{display:flex;flex-direction:column;overflow:hidden;height:100%}
+.content-header{padding:10px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;flex-shrink:0}
+.active-file-name{font-size:.82rem;font-weight:600;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--border);background:var(--bg-card);flex-shrink:0}
+.tab-btn{background:none;border:none;padding:9px 14px;color:var(--text-3);cursor:pointer;font-size:.8rem;font-weight:500;border-bottom:2px solid transparent;transition:var(--t);font-family:var(--sans)}
+.tab-btn:hover{color:var(--text-2)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-panel{display:none;flex:1;overflow-y:auto;min-height:0}
+.tab-panel.active{display:flex;flex-direction:column}
+.tab-panel::-webkit-scrollbar{width:4px}
+.tab-panel::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:4px}
+
+/* ── Transcript panel ── */
+.transcript-panel{flex:1;display:flex;flex-direction:column;padding:14px;gap:10px;min-height:0}
+.progress-section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;flex-shrink:0}
+.progress-label{font-size:.76rem;color:var(--text-2);margin-bottom:7px;font-weight:500}
+.progress-bar-track{height:5px;background:var(--border);border-radius:5px;overflow:hidden;margin-bottom:7px}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),#7eb8ff);border-radius:5px;transition:width .4s ease}
+.progress-message{font-size:.73rem;color:var(--text-3)}
+.output-toolbar{display:flex;justify-content:flex-end;gap:5px;flex-shrink:0}
+.transcript-box,.live-transcript-box{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;font-family:var(--mono);font-size:.8rem;color:var(--text-2);line-height:1.7;overflow-y:auto;white-space:pre-wrap;word-break:break-word;min-height:0}
+.live-transcript-box{color:var(--text-1);border-color:var(--accent-dim)}
+.live-label{font-size:.7rem;color:var(--accent);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.live-dot{width:6px;height:6px;background:var(--success);border-radius:50%;animation:blink 1s infinite;flex-shrink:0}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── Notulensi panel ── */
+.notulensi-panel{flex:1;display:flex;flex-direction:column;padding:14px;gap:10px;min-height:0}
+.meeting-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0}
+.form-group{display:flex;flex-direction:column;gap:3px}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:.72rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em}
+.form-input{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r);padding:7px 10px;color:var(--text-1);font-size:.81rem;font-family:var(--sans);outline:none;transition:border-color var(--t);width:100%}
+.form-input:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text-3)}
+select.form-input{cursor:pointer}
+.notulensi-output{flex:1;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;overflow-y:auto;line-height:1.75;min-height:0;color:var(--text-2);font-size:.85rem}
+.notulensi-output h1{font-size:1.15rem;color:var(--text-1);margin:14px 0 7px}
+.notulensi-output h2{font-size:.95rem;color:var(--accent);margin:12px 0 5px;border-bottom:1px solid var(--border);padding-bottom:3px}
+.notulensi-output h3{font-size:.88rem;color:var(--text-1);margin:9px 0 3px}
+.notulensi-output ul{padding-left:18px;margin:3px 0 7px}
+.notulensi-output li{margin-bottom:2px}
+.notulensi-output strong{color:var(--text-1)}
+.notulensi-output p{margin-bottom:7px}
+.notulensi-output::-webkit-scrollbar{width:4px}
+.notulensi-output::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:4px}
+
+/* ── Settings panel ── */
+.settings-panel{padding:18px;overflow-y:auto;flex:1;max-width:600px}
+.settings-section{margin-bottom:22px}
+.settings-title{font-size:.86rem;font-weight:700;color:var(--text-1);margin-bottom:11px;display:flex;align-items:center;gap:8px}
+.settings-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.key-input-wrapper{position:relative;display:flex;align-items:center}
+.key-input-wrapper .form-input{padding-right:36px;font-family:var(--mono);font-size:.78rem}
+.toggle-key{position:absolute;right:7px;background:none;border:none;cursor:pointer;font-size:.88rem;padding:4px;line-height:1}
+.settings-hint{font-size:.72rem;color:var(--text-3);margin-top:3px}
+.settings-hint a{color:var(--accent);text-decoration:none}
+.settings-hint a:hover{text-decoration:underline}
+.settings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.alert-box{background:rgba(79,142,247,.08);border:1px solid var(--accent-dim);border-radius:var(--r);padding:11px 13px;font-size:.78rem;color:var(--text-2);line-height:1.6;margin-bottom:14px}
+.alert-box strong{color:var(--accent)}
+.how-to{font-size:.8rem;color:var(--text-2);line-height:1.85}
+.how-to strong{color:var(--text-1)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:7px 13px;border-radius:8px;border:1px solid transparent;cursor:pointer;font-size:.78rem;font-weight:600;font-family:var(--sans);transition:var(--t);white-space:nowrap;line-height:1.4}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover:not(:disabled){background:#3d7ef0;box-shadow:0 0 10px rgba(79,142,247,.4)}
+.btn-secondary{background:var(--bg-input);color:var(--text-2);border-color:var(--border)}
+.btn-secondary:hover:not(:disabled){background:var(--bg-hover);color:var(--text-1)}
+.btn-danger{background:rgba(247,88,88,.1);color:var(--error);border-color:rgba(247,88,88,.3)}
+.btn-danger:hover:not(:disabled){background:rgba(247,88,88,.2)}
+.btn-sm{padding:5px 9px;font-size:.73rem}
+
+/* ── Toast ── */
+#toast-container{position:fixed;bottom:20px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:9999}
+.toast{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:9px 14px;font-size:.8rem;color:var(--text-1);box-shadow:var(--shadow);transform:translateX(110px);opacity:0;transition:.25s ease;max-width:300px}
+.toast.show{transform:translateX(0);opacity:1}
+.toast-success{border-left:3px solid var(--success)}
+.toast-warning{border-left:3px solid var(--warning)}
+.toast-error{border-left:3px solid var(--error)}
+.toast-info{border-left:3px solid var(--accent)}
+
+/* ── Responsive ── */
+@media(max-width:720px){
+  body{overflow:auto}
+  .app-body{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto}
+  .sidebar{border-right:none;border-bottom:1px solid var(--border);max-height:260px}
+  .main-content{height:70vh}
+  .meeting-info-grid{grid-template-columns:1fr}
+  .settings-row{grid-template-columns:1fr}
+  .app-subtitle{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-logo">🎙️ <span>Notulensi</span>AI</div>
+  <span class="app-subtitle">Transkripsi tanpa batas · Notulensi profesional</span>
+</header>
+
+<div class="app-body">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="drop-zone" id="drop-zone">
+        <span class="drop-icon">📁</span>
+        <div class="drop-title">Upload File Audio</div>
+        <div class="drop-sub">Klik atau seret file ke sini</div>
+        <div class="drop-formats">MP3 · M4A · WAV · OGG · MPEG · MP4 · WEBM · FLAC · AAC</div>
+      </div>
+      <input type="file" id="file-input" multiple accept="audio/*,video/*,.m4a,.mp3,.wav,.ogg,.flac,.aac,.mpeg,.mp4,.webm,.mkv,.mov" style="display:none" />
+    </div>
+
+    <div class="sidebar-actions">
+      <button class="btn btn-primary" id="btn-transcribe-all" style="flex:1">▶ Mulai Transkripsi</button>
+      <button class="btn btn-danger btn-sm" id="btn-cancel" style="display:none">⛔ Batal</button>
+      <button class="btn btn-secondary btn-sm" id="btn-clear-done" title="Hapus file selesai/error">🗑</button>
+    </div>
+
+    <div class="file-list" id="file-list">
+      <div class="file-list-empty">Belum ada file. Upload audio di atas.</div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+    <div class="content-header">
+      <span class="active-file-name" id="active-file-info">Pilih atau upload file audio untuk memulai</span>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="transkrip">📝 Transkrip</button>
+      <button class="tab-btn" data-tab="notulensi">📋 Notulensi</button>
+      <button class="tab-btn" data-tab="pengaturan">⚙️ Pengaturan</button>
+    </div>
+
+    <!-- Tab: Transkrip -->
+    <div class="tab-panel active" data-panel="transkrip">
+      <div class="transcript-panel">
+        <div class="progress-section" id="progress-section" style="display:none">
+          <div class="progress-label">Progres Transkripsi</div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="progress-bar-fill" style="width:0%"></div></div>
+          <div class="progress-message" id="progress-message">Memulai...</div>
+        </div>
+        <div class="output-toolbar">
+          <button class="btn btn-secondary btn-sm" id="btn-copy-transcript">📋 Salin</button>
+          <button class="btn btn-secondary btn-sm" id="btn-download-transcript">⬇ Unduh .txt</button>
+        </div>
+        <div class="live-label" id="live-label" style="display:none"><span class="live-dot"></span> Live Transkrip</div>
+        <pre class="live-transcript-box" id="live-transcript" style="display:none"></pre>
+        <pre class="transcript-box" id="transcript-output">Selamat datang di Notulensi AI 🎙️
+
+Cara pakai (GRATIS dengan Groq):
+  1. Daftar gratis di console.groq.com → buat API Key
+  2. Tab ⚙️ Pengaturan → masukkan Groq API Key → Simpan
+  3. Upload file audio dari sidebar kiri (boleh banyak sekaligus)
+  4. Klik "▶ Mulai Transkripsi"
+  5. Tunggu proses selesai — live progress terlihat di layar
+  6. Salin atau unduh transkrip
+
+Setelah transkrip jadi:
+  → Tab 📋 Notulensi → isi info rapat → "✨ Buat Notulensi"
+
+Tidak ada batas ukuran file atau durasi rekaman.
+File panjang otomatis dipotong per segmen ~20 detik.
+Groq free tier: gratis, tanpa kartu kredit.</pre>
+      </div>
+    </div>
+
+    <!-- Tab: Notulensi -->
+    <div class="tab-panel" data-panel="notulensi">
+      <div class="notulensi-panel">
+        <div class="meeting-info-grid">
+          <div class="form-group">
+            <label class="form-label">Judul Rapat</label>
+            <input class="form-input" type="text" id="meeting-title" placeholder="cth: Rapat Koordinasi Proyek X" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tanggal</label>
+            <input class="form-input" type="date" id="meeting-date" />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Peserta (opsional)</label>
+            <input class="form-input" type="text" id="meeting-attendees" placeholder="cth: Budi, Sari, Pak Joko..." />
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Konteks tambahan (opsional)</label>
+            <input class="form-input" type="text" id="meeting-context" placeholder="cth: Evaluasi kinerja Q2 divisi pemasaran" />
+          </div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;flex-shrink:0">
+          <button class="btn btn-primary" id="btn-generate-notulensi">✨ Buat Notulensi</button>
+          <button class="btn btn-secondary btn-sm" id="btn-copy-notulensi">📋 Salin</button>
+          <button class="btn btn-secondary btn-sm" id="btn-download-notulensi">⬇ Unduh .md</button>
+        </div>
+        <div class="notulensi-output" id="notulensi-output">Notulensi belum dibuat. Klik "Buat Notulensi" setelah transkrip selesai.</div>
+      </div>
+    </div>
+
+    <!-- Tab: Pengaturan -->
+    <div class="tab-panel" data-panel="pengaturan">
+      <div class="settings-panel">
+        <div class="alert-box">
+          <strong>🆓 Gratis 100% dengan Groq:</strong> Daftar di <a href="https://console.groq.com" target="_blank">console.groq.com</a> → buat API Key → masukkan di bawah. Tidak perlu kartu kredit. API key hanya dikirim langsung ke Groq/Anthropic, tidak ke server kami.
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">🎙️ Transkripsi — Groq Whisper (Gratis)</div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Groq API Key <span style="color:var(--error)">*</span></label>
+            <div class="key-input-wrapper">
+              <input class="form-input" type="password" id="openai-key" placeholder="gsk_..." autocomplete="off" />
+              <button class="toggle-key" data-target="openai-key">👁</button>
+            </div>
+            <div class="settings-hint">Daftar gratis di <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a> — tidak perlu kartu kredit. Free tier: 2.000 request/hari.</div>
+          </div>
+          <div class="settings-row">
+            <div class="form-group">
+              <label class="form-label">Bahasa Audio</label>
+              <select class="form-input" id="language">
+                <option value="id">🇮🇩 Indonesia</option>
+                <option value="auto">🌐 Auto-detect</option>
+                <option value="en">🇺🇸 English</option>
+                <option value="jv">Jawa</option>
+                <option value="su">Sunda</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Durasi Segmen (detik)</label>
+              <input class="form-input" type="number" id="chunk-duration" value="20" min="10" max="25" />
+              <div class="settings-hint">Maks. 25 detik agar file &lt;25MB (batas Groq free tier)</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-title">✨ Notulensi — Claude AI (Opsional)</div>
+          <div class="form-group">
+            <label class="form-label">Anthropic API Key</label>
+            <div class="key-input-wrapper">
+              <input class="form-input" type="password" id="anthropic-key" placeholder="sk-ant-..." autocomplete="off" />
+              <button class="toggle-key" data-target="anthropic-key">👁</button>
+            </div>
+            <div class="settings-hint">Dapatkan di <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a>. Hanya untuk fitur Notulensi otomatis. Berbayar tapi murah (~$0.02/rapat).</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-save-settings">💾 Simpan Pengaturan</button>
+
+        <div style="height:20px"></div>
+        <div class="settings-section">
+          <div class="settings-title">📖 Cara Penggunaan & Info Groq Free Tier</div>
+          <div class="how-to">
+            <strong>Setup Groq (sekali, gratis):</strong><br>
+            1. Buka <a href="https://console.groq.com/keys" target="_blank" style="color:var(--accent)">console.groq.com/keys</a><br>
+            2. Login/daftar (gratis, tanpa kartu kredit)<br>
+            3. Klik "Create API Key" → salin key-nya<br>
+            4. Tempel di kolom "Groq API Key" di atas → Simpan<br><br>
+
+            <strong>Batas free tier Groq (per hari):</strong><br>
+            • 2.000 request transkripsi/hari<br>
+            • Cukup untuk ~11 jam audio per hari<br>
+            • Jika lebih, lanjutkan keesokan harinya<br><br>
+
+            <strong>Estimasi waktu proses:</strong><br>
+            • 1 jam audio ≈ 180 segmen × ~2 detik = ~6 menit<br>
+            • 7 rekaman × 1.5 jam ≈ 60–90 menit total<br>
+            • Bisa dibagi 2 hari jika terkena rate limit<br><br>
+
+            <strong>Tip jika kena rate limit (error 429):</strong><br>
+            Website akan otomatis tunggu 60 detik lalu lanjut. Jangan tutup browser.
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   TRANSCRIBER ENGINE v5
+   
+   Key insight: Groq Whisper API accepts the ORIGINAL audio format
+   (MP3, M4A, WAV, etc.) — we do NOT need to decode audio in the
+   browser at all! We just slice the file bytes into chunks and
+   send each chunk. Works on GitHub Pages, no libraries needed.
+   
+   For formats where byte-slicing works well (MP3, WAV, OGG):
+     → Slice file into ~5MB byte chunks, send directly to Groq
+   
+   For M4A/AAC/MP4 (container-based, byte slicing breaks sync):
+     → Use HTMLAudioElement to get duration, then send full file
+       split by TIME via a smarter approach: re-encode each segment
+       using MediaRecorder at ACCELERATED speed, OR fall back to
+       sending larger chunks with overlap.
+   
+   SIMPLEST reliable approach for ALL formats:
+     → Send original file in ≤24MB byte slices to Groq directly.
+       Groq handles partial MP3/WAV fine (they're streamable).
+       For M4A: send full file if <24MB, else use Web Audio decode
+       only for duration + resample (accepts OOM risk user must
+       manage by using smaller files or converting first).
+   ═══════════════════════════════════════════════════════════════════ */
+
+class AudioTranscriber {
+  constructor(opts) {
+    opts = opts || {};
+    this.onProgress  = opts.onProgress  || function(){};
+    this.onChunkDone = opts.onChunkDone || function(){};
+    this.cancelled   = false;
+    // Max bytes per Groq request (24MB safe limit)
+    this.MAX_BYTES   = 23 * 1024 * 1024; // 23MB
+  }
+
+  cancel() { this.cancelled = true; }
+
+  fmtSize(bytes) {
+    if (bytes > 1024*1024) return (bytes/1024/1024).toFixed(1) + 'MB';
+    return (bytes/1024).toFixed(0) + 'KB';
+  }
+
+  fmtTime(sec) {
+    var h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60), s = Math.floor(sec%60);
+    if (h > 0) return h+'j '+m+'m '+s+'d';
+    if (m > 0) return m+'m '+s+'d';
+    return s+'d';
+  }
+
+  /* Get audio duration cheaply via HTMLAudioElement (no decode) */
+  getDuration(file) {
+    return new Promise(function(resolve) {
+      var url = URL.createObjectURL(file);
+      var a   = new Audio();
+      a.addEventListener('loadedmetadata', function() {
+        URL.revokeObjectURL(url);
+        resolve(isFinite(a.duration) ? a.duration : null);
+      });
+      a.addEventListener('error', function() { URL.revokeObjectURL(url); resolve(null); });
+      a.preload = 'metadata';
+      a.src = url;
+    });
+  }
+
+  /* Detect if format supports reliable byte-range slicing.
+     MP3 and WAV are streamable/sliceable.
+     M4A, MP4, AAC, MOV use container formats — slicing breaks sync. */
+  isSliceable(file) {
+    var name = file.name.toLowerCase();
+    var type = (file.type || '').toLowerCase();
+    var sliceFormats = ['.mp3','.wav','.ogg','.opus','.flac','.webm'];
+    var sliceTypes   = ['audio/mpeg','audio/mp3','audio/wav','audio/wave',
+                        'audio/ogg','audio/opus','audio/flac','audio/webm'];
+    var extOk  = sliceFormats.some(function(e){ return name.endsWith(e); });
+    var typeOk = sliceTypes.some(function(t){ return type.startsWith(t); });
+    return extOk || typeOk;
+  }
+
+  /* ── Strategy A: Byte-slice (MP3, WAV, OGG, WEBM) ─────────────────
+     Slice raw file bytes into ≤23MB chunks, send each to Groq.
+     Groq's Whisper handles partial streamable audio correctly. */
+  async transcribeBySlice(file, apiKey, language) {
+    var totalBytes = file.size;
+    var chunkSize  = this.MAX_BYTES;
+    var total      = Math.ceil(totalBytes / chunkSize);
+
+    this.onProgress({ percent: 5, message: 'Mode: byte-slice — ' + total + ' bagian × ' + this.fmtSize(chunkSize) });
+
+    var fullText = '';
+    for (var i = 0; i < total; i++) {
+      if (this.cancelled) throw new Error('Transkripsi dibatalkan.');
+
+      var start = i * chunkSize;
+      var end   = Math.min(start + chunkSize, totalBytes);
+      var pct   = 5 + Math.round((i / total) * 93);
+
+      this.onProgress({
+        percent: pct,
+        message: 'Bagian ' + (i+1) + '/' + total + ' — ' + this.fmtSize(start) + '–' + this.fmtSize(end)
+      });
+
+      var slice = file.slice(start, end, file.type || 'audio/mpeg');
+      var text  = await this.sendToGroq(slice, file.name, apiKey, language, i, total);
+      if (text) fullText += (fullText ? ' ' : '') + text;
+      this.onChunkDone({ chunkIndex: i, totalChunks: total, text: text, fullSoFar: fullText });
+
+      if (i < total-1 && !this.cancelled)
+        await new Promise(function(r){ setTimeout(r, 350); });
+    }
+    return fullText;
+  }
+
+  /* ── Strategy B: Web Audio decode + resample (M4A, AAC, MP4, MOV) ─
+     For container formats we MUST decode. But we do it smartly:
+     - First check if file fits in one Groq request (<23MB) → send whole
+     - If file >23MB, decode with Web Audio (user's RAM permitting),
+       split into PCM chunks, encode to WAV, send each              */
+  async transcribeByDecode(file, apiKey, language) {
+    // If file fits in one request, just send it directly — no decode needed!
+    if (file.size <= this.MAX_BYTES) {
+      this.onProgress({ percent: 5, message: 'File kecil (<23MB) — kirim langsung ke Groq...' });
+      var text = await this.sendToGroq(file, file.name, apiKey, language, 0, 1);
+      this.onChunkDone({ chunkIndex: 0, totalChunks: 1, text: text, fullSoFar: text });
+      return text;
+    }
+
+    // File >23MB and container format → must decode to PCM then re-encode WAV
+    this.onProgress({ percent: 3, message: 'File besar format container — mendekode audio...' });
+    this.onProgress({ percent: 4, message: '⚠️ File M4A/MP4 besar membutuhkan RAM. Jika error, konversi ke MP3 dulu.' });
+
+    var audioCtx;
+    var decoded;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var arrayBuf = await file.arrayBuffer();
+      decoded = await audioCtx.decodeAudioData(arrayBuf);
+      await audioCtx.close();
+    } catch(e) {
+      if (audioCtx) try { await audioCtx.close(); } catch(_){}
+      throw new Error(
+        'Gagal decode file ' + file.name + '.\n\n' +
+        'File M4A/MP4 >23MB perlu didekode penuh di browser yang membutuhkan RAM besar.\n\n' +
+        '💡 SOLUSI: Konversi file ke MP3 dulu menggunakan:\n' +
+        '   • cloudconvert.com (gratis, online)\n' +
+        '   • Atau pakai VLC: Media → Convert → pilih MP3\n\n' +
+        'MP3 bisa dipotong langsung tanpa decode, jauh lebih efisien.'
+      );
+    }
+
+    // PCM decoded → mix mono, downsample, split, encode WAV
+    var sr = decoded.sampleRate;
+    var ch = decoded.numberOfChannels;
+
+    // Mix to mono
+    var mono = new Float32Array(decoded.length);
+    for (var c = 0; c < ch; c++) {
+      var d = decoded.getChannelData(c);
+      for (var j = 0; j < decoded.length; j++) mono[j] += d[j];
+    }
+    for (var j = 0; j < mono.length; j++) mono[j] /= ch;
+
+    // Downsample to 16kHz
+    var TARGET = 16000;
+    var ratio  = sr / TARGET;
+    var dsLen  = Math.floor(mono.length / ratio);
+    var ds     = new Float32Array(dsLen);
+    for (var i = 0; i < dsLen; i++) {
+      var pos = i * ratio, idx = Math.floor(pos), frac = pos - idx;
+      ds[i] = (mono[idx]||0) + frac * ((mono[idx+1]||0) - (mono[idx]||0));
+    }
+
+    // Split into ~20s chunks at 16kHz
+    var CHUNK_SEC  = 20;
+    var chunkSamp  = TARGET * CHUNK_SEC;
+    var total      = Math.ceil(dsLen / chunkSamp);
+
+    this.onProgress({ percent: 6, message: 'Dibagi ' + total + ' segmen × ' + CHUNK_SEC + 'd' });
+
+    var fullText = '';
+    for (var i = 0; i < total; i++) {
+      if (this.cancelled) throw new Error('Transkripsi dibatalkan.');
+      var pct     = 6 + Math.round((i / total) * 92);
+      var startS  = i * CHUNK_SEC;
+      var endS    = Math.min(startS + CHUNK_SEC, decoded.duration);
+      this.onProgress({ percent: pct, message: 'Segmen ' + (i+1) + '/' + total + ' — ' + this.fmtTime(startS) + '–' + this.fmtTime(endS) });
+
+      var startIdx = i * chunkSamp;
+      var endIdx   = Math.min(startIdx + chunkSamp, dsLen);
+      var chunk    = ds.slice(startIdx, endIdx);
+      var wav      = this.toWav(chunk, TARGET);
+      var text     = await this.sendToGroq(wav, 'chunk_'+i+'.wav', apiKey, language, i, total);
+      if (text) fullText += (fullText ? ' ' : '') + text;
+      this.onChunkDone({ chunkIndex: i, totalChunks: total, text: text, fullSoFar: fullText });
+
+      if (i < total-1 && !this.cancelled)
+        await new Promise(function(r){ setTimeout(r, 350); });
+    }
+    return fullText;
+  }
+
+  /* Encode mono Float32Array to 16-bit WAV Blob */
+  toWav(samples, sr) {
+    var len = samples.length * 2;
+    var ab  = new ArrayBuffer(44 + len);
+    var v   = new DataView(ab);
+    var ws  = function(o,s){ for(var i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+    ws(0,'RIFF'); v.setUint32(4,36+len,true);
+    ws(8,'WAVE'); ws(12,'fmt '); v.setUint32(16,16,true);
+    v.setUint16(20,1,true); v.setUint16(22,1,true);
+    v.setUint32(24,sr,true); v.setUint32(28,sr*2,true);
+    v.setUint16(32,2,true); v.setUint16(34,16,true);
+    ws(36,'data'); v.setUint32(40,len,true);
+    var o = 44;
+    for(var i=0;i<samples.length;i++,o+=2){
+      var s=Math.max(-1,Math.min(1,samples[i]));
+      v.setInt16(o,s<0?s*0x8000:s*0x7FFF,true);
+    }
+    return new Blob([ab],{type:'audio/wav'});
+  }
+
+  /* Send any audio Blob to Groq Whisper with 429 retry */
+  async sendToGroq(blob, filename, apiKey, language, idx, total) {
+    if (blob.size > 24*1024*1024)
+      throw new Error('Bagian '+(idx+1)+' terlalu besar ('+this.fmtSize(blob.size)+'). Coba format MP3.');
+
+    var ext = filename.split('.').pop().toLowerCase();
+    var mime = { mp3:'audio/mpeg', wav:'audio/wav', m4a:'audio/mp4',
+                 mp4:'audio/mp4', ogg:'audio/ogg', flac:'audio/flac',
+                 webm:'audio/webm', opus:'audio/opus', aac:'audio/aac' };
+    var type = mime[ext] || blob.type || 'audio/mpeg';
+    var sendBlob = new Blob([blob], { type: type });
+
+    var fd = new FormData();
+    fd.append('file', sendBlob, filename.replace(/[^a-zA-Z0-9._-]/g,'_'));
+    fd.append('model', 'whisper-large-v3-turbo');
+    if (language && language !== 'auto') fd.append('language', language);
+    fd.append('response_format', 'text');
+
+    for (var attempt = 0; attempt < 5; attempt++) {
+      if (this.cancelled) throw new Error('Transkripsi dibatalkan.');
+
+      var res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + apiKey },
+        body: fd,
+      });
+
+      if (res.ok) return (await res.text()).trim();
+
+      if (res.status === 429) {
+        var wait = Math.min(parseInt(res.headers.get('retry-after')||'60') + 3, 120);
+        for (var w = wait; w > 0; w--) {
+          if (this.cancelled) throw new Error('Transkripsi dibatalkan.');
+          this.onProgress({ percent:-1, rateLimit:true,
+            message:'⏳ Rate limit — lanjut dalam '+w+'d... (bagian '+(idx+1)+'/'+total+')'});
+          await new Promise(function(r){ setTimeout(r,1000); });
+        }
+        continue;
+      }
+      if (res.status === 401)
+        throw new Error('API Key tidak valid. Periksa Groq API Key di Pengaturan.');
+
+      var errText = await res.text();
+      throw new Error('Groq error ['+ res.status+']: '+errText);
+    }
+    throw new Error('Gagal setelah 5 percobaan pada bagian '+(idx+1)+'.');
+  }
+
+  /* Main entry — auto-detect strategy */
+  async transcribe(file, opts) {
+    opts = opts || {};
+    this.cancelled = false;
+    var apiKey   = opts.apiKey   || '';
+    var language = opts.language || 'id';
+
+    this.onProgress({ percent:1, message:'Mengecek file: '+file.name+' ('+this.fmtSize(file.size)+')' });
+
+    if (this.isSliceable(file)) {
+      this.onProgress({ percent:2, message:'Format streamable ('+file.name.split('.').pop().toUpperCase()+') — siap dipotong langsung ✅' });
+      return await this.transcribeBySlice(file, apiKey, language);
+    } else {
+      this.onProgress({ percent:2, message:'Format container ('+file.name.split('.').pop().toUpperCase()+') — memproses...' });
+      return await this.transcribeByDecode(file, apiKey, language);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   NOTULENSI GENERATOR
+   ═══════════════════════════════════════════════════════ */
+class NotulensiGenerator {
+  async generate(transcript, opts) {
+    opts = opts || {};
+    if (!opts.apiKey) throw new Error('Anthropic API Key diperlukan.');
+    if (!transcript || transcript.trim().length < 50) throw new Error('Transkrip terlalu pendek.');
+
+    var ctx = [
+      opts.meetingTitle ? 'Judul Rapat: '+opts.meetingTitle : '',
+      opts.meetingDate  ? 'Tanggal: '+opts.meetingDate       : '',
+      opts.attendees    ? 'Peserta: '+opts.attendees          : '',
+      opts.additionalContext ? 'Konteks: '+opts.additionalContext : '',
+    ].filter(Boolean).join('\n');
+
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': opts.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-calls': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: 'Anda adalah sekretaris profesional berpengalaman yang ahli membuat notulensi rapat terstruktur dalam Bahasa Indonesia.\n\nUbah transkrip rapat menjadi notulensi rapat yang rapi dan profesional.\n\nFormat:\n# NOTULENSI RAPAT\n## Informasi Rapat\n## Agenda / Topik yang Dibahas\n## Jalannya Rapat\n## Keputusan yang Diambil\n## Tindak Lanjut / Action Items\n## Kesimpulan\n\nGunakan bahasa formal, hilangkan filler words, tandai hal tidak jelas dengan [tidak jelas].',
+        messages: [{ role:'user', content: (ctx?ctx+'\n\n':'')+'Transkrip:\n---\n'+transcript+'\n---\n\nBuat notulensi profesional.' }],
+      }),
+    });
+    if (!res.ok) {
+      var e = await res.json().catch(function(){ return {}; });
+      throw new Error('Anthropic: '+(e.error&&e.error.message?e.error.message:res.statusText));
+    }
+    var data = await res.json();
+    return data.content&&data.content[0]&&data.content[0].text ? data.content[0].text : '';
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   APP
+   ═══════════════════════════════════════════════════════ */
+var App = {
+  state: { files:[], activeId:null, processing:false, transcriber:null },
+
+  init: function(){ this.bind(); this.loadSettings(); this.renderList(); },
+
+  loadSettings: function(){
+    try {
+      var s = JSON.parse(localStorage.getItem('nai_cfg')||'{}');
+      if(s.ok)   document.getElementById('openai-key').value    = s.ok;
+      if(s.ak)   document.getElementById('anthropic-key').value = s.ak;
+      if(s.lang) document.getElementById('language').value      = s.lang;
+    } catch(_){}
+  },
+
+  saveSettings: function(){
+    localStorage.setItem('nai_cfg', JSON.stringify({
+      ok:   document.getElementById('openai-key').value.trim(),
+      ak:   document.getElementById('anthropic-key').value.trim(),
+      lang: document.getElementById('language').value,
+    }));
+    this.toast('Pengaturan tersimpan!','success');
+  },
+
+  bind: function(){
+    var self=this;
+    var dz=document.getElementById('drop-zone');
+    var fi=document.getElementById('file-input');
+    dz.addEventListener('click',function(){ fi.click(); });
+    dz.addEventListener('dragover',function(e){ e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave',function(){ dz.classList.remove('drag-over'); });
+    dz.addEventListener('drop',function(e){ e.preventDefault(); dz.classList.remove('drag-over'); self.addFiles(Array.from(e.dataTransfer.files)); });
+    fi.addEventListener('change',function(e){ self.addFiles(Array.from(e.target.files)); fi.value=''; });
+
+    document.getElementById('btn-transcribe-all').addEventListener('click',    function(){ self.transcribeAll(); });
+    document.getElementById('btn-cancel').addEventListener('click',             function(){ self.cancel(); });
+    document.getElementById('btn-clear-done').addEventListener('click',         function(){ self.clearDone(); });
+    document.getElementById('btn-save-settings').addEventListener('click',      function(){ self.saveSettings(); });
+    document.getElementById('btn-generate-notulensi').addEventListener('click', function(){ self.genNotulensi(); });
+    document.getElementById('btn-copy-transcript').addEventListener('click',    function(){ self.copyText('transcript'); });
+    document.getElementById('btn-copy-notulensi').addEventListener('click',     function(){ self.copyText('notulensi'); });
+    document.getElementById('btn-download-transcript').addEventListener('click',function(){ self.download('transcript'); });
+    document.getElementById('btn-download-notulensi').addEventListener('click', function(){ self.download('notulensi'); });
+
+    document.querySelectorAll('.tab-btn').forEach(function(b){
+      b.addEventListener('click',function(){ self.showTab(b.dataset.tab); });
+    });
+    document.querySelectorAll('.toggle-key').forEach(function(b){
+      b.addEventListener('click',function(){
+        var inp=document.getElementById(b.dataset.target);
+        inp.type=inp.type==='password'?'text':'password';
+        b.textContent=inp.type==='password'?'👁':'🙈';
+      });
+    });
+  },
+
+  uid: function(){ return Date.now().toString(36)+Math.random().toString(36).slice(2); },
+
+  addFiles: function(files){
+    var self=this;
+    var AUDIO_EXTS=/\.(mp3|m4a|wav|ogg|flac|aac|mpeg|mp4|webm|mkv|mov|wma|opus|aiff|aif)$/i;
+    var ok=files.filter(function(f){ return f.type.startsWith('audio/')||f.type.startsWith('video/')||AUDIO_EXTS.test(f.name); });
+    var bad=files.length-ok.length;
+    if(bad) self.toast(bad+' file diabaikan','warning');
+    ok.forEach(function(f){ self.state.files.push({id:self.uid(),file:f,status:'pending',transcript:'',notulensi:'',progress:{},error:null}); });
+    self.renderList();
+    if(!self.state.activeId&&self.state.files.length) self.setActive(self.state.files[0].id);
+  },
+
+  removeFile: function(id){
+    this.state.files=this.state.files.filter(function(f){ return f.id!==id; });
+    if(this.state.activeId===id) this.state.activeId=(this.state.files[0]&&this.state.files[0].id)||null;
+    this.renderList(); this.renderActive();
+  },
+
+  setActive: function(id){ this.state.activeId=id; this.renderList(); this.renderActive(); },
+  active: function(){ var id=this.state.activeId; return this.state.files.find(function(f){ return f.id===id; }); },
+
+  clearDone: function(){
+    var self=this;
+    this.state.files=this.state.files.filter(function(f){ return f.status!=='done'&&f.status!=='error'&&f.status!=='cancelled'; });
+    if(!this.state.files.find(function(f){ return f.id===self.state.activeId; }))
+      this.state.activeId=(this.state.files[0]&&this.state.files[0].id)||null;
+    this.renderList(); this.renderActive();
+  },
+
+  transcribeAll: async function(){
+    if(this.state.processing) return;
+    var key=document.getElementById('openai-key').value.trim();
+    if(!key){ this.toast('Masukkan Groq API Key di Pengaturan!','error'); this.showTab('pengaturan'); return; }
+    var pending=this.state.files.filter(function(f){ return f.status==='pending'||f.status==='error'; });
+    if(!pending.length){ this.toast('Tidak ada file yang perlu diproses','warning'); return; }
+
+    this.state.processing=true; this.updateUI();
+    var lang=document.getElementById('language').value;
+
+    for(var i=0;i<pending.length;i++){
+      if(!this.state.processing) break;
+      await this.transcribeOne(pending[i].id,key,lang);
+    }
+    this.state.processing=false; this.state.transcriber=null; this.updateUI();
+  },
+
+  transcribeOne: async function(id,key,lang){
+    var self=this;
+    var item=this.state.files.find(function(f){ return f.id===id; });
+    if(!item) return;
+    item.status='processing'; item.error=null; item.transcript='';
+    this.setActive(id);
+
+    var lBox=document.getElementById('live-transcript');
+    var lLbl=document.getElementById('live-label');
+    var tBox=document.getElementById('transcript-output');
+    var progSec=document.getElementById('progress-section');
+    if(lBox){ lBox.textContent=''; lBox.style.display='block'; }
+    if(lLbl) lLbl.style.display='flex';
+    if(tBox) tBox.style.display='none';
+    if(progSec) progSec.style.display='block';
+
+    var t=new AudioTranscriber({
+      onProgress: function(prog){
+        if(!prog.rateLimit) item.progress=prog;
+        else item.progress=Object.assign({},item.progress,{message:prog.message});
+        if(self.state.activeId===id) self.renderProgress(prog);
+        self.renderList();
+      },
+      onChunkDone: function(chunk){
+        item.transcript=chunk.fullSoFar;
+        if(self.state.activeId===id&&chunk.text){
+          var lb=document.getElementById('live-transcript');
+          if(lb){ lb.textContent+=(lb.textContent?' ':'')+chunk.text; lb.scrollTop=lb.scrollHeight; }
+        }
+      },
+    });
+    this.state.transcriber=t;
+
+    try{
+      var finalText=await t.transcribe(item.file,{apiKey:key,language:lang});
+      item.transcript=finalText;
+      item.status='done';
+      item.progress={percent:100,message:'✅ Selesai!'};
+      this.toast('✅ '+item.file.name+' — selesai!','success');
+    }catch(e){
+      item.status=e.message.includes('dibatalkan')?'cancelled':'error';
+      item.error=e.message;
+      if(item.status==='error') this.toast('❌ '+e.message,'error');
+    }
+    this.renderList(); this.renderActive();
+  },
+
+  cancel: function(){
+    if(this.state.transcriber) this.state.transcriber.cancel();
+    this.state.processing=false; this.updateUI();
+    this.toast('Transkripsi dibatalkan','warning');
+  },
+
+  genNotulensi: async function(){
+    var item=this.active();
+    if(!item||!item.transcript){ this.toast('Belum ada transkrip','warning'); return; }
+    var key=document.getElementById('anthropic-key').value.trim();
+    if(!key){ this.toast('Masukkan Anthropic API Key di Pengaturan!','error'); this.showTab('pengaturan'); return; }
+    var btn=document.getElementById('btn-generate-notulensi');
+    var nBox=document.getElementById('notulensi-output');
+    btn.disabled=true; btn.textContent='⏳ Membuat notulensi...';
+    nBox.textContent='Menghubungi Claude AI...';
+    try{
+      var gen=new NotulensiGenerator();
+      item.notulensi=await gen.generate(item.transcript,{
+        apiKey:key,
+        meetingTitle:document.getElementById('meeting-title').value,
+        meetingDate:document.getElementById('meeting-date').value,
+        attendees:document.getElementById('meeting-attendees').value,
+        additionalContext:document.getElementById('meeting-context').value,
+      });
+      this.renderActive();
+      this.toast('Notulensi berhasil dibuat!','success');
+    }catch(e){
+      nBox.textContent='Error: '+e.message;
+      this.toast('Gagal: '+e.message,'error');
+    }finally{
+      btn.disabled=false; btn.textContent='✨ Buat Notulensi';
+    }
+  },
+
+  renderList: function(){
+    var self=this;
+    var c=document.getElementById('file-list');
+    if(!this.state.files.length){ c.innerHTML='<div class="file-list-empty">Belum ada file. Upload audio di atas.</div>'; return; }
+    var icons={pending:'⏳',processing:'🔄',done:'✅',error:'❌',cancelled:'⛔'};
+    c.innerHTML=this.state.files.map(function(f){
+      var isActive=f.id===self.state.activeId;
+      var mb=(f.file.size/1024/1024).toFixed(1);
+      var pct=(f.progress&&f.progress.percent>0)?f.progress.percent:0;
+      var bar=f.status==='processing'?'<div class="file-progress-bar"><div class="file-progress-fill" style="width:'+pct+'%"></div></div>':'';
+      var meta=f.status==='processing'&&f.progress&&f.progress.message?mb+' MB · '+f.progress.message:mb+' MB · '+f.status;
+      return '<div class="file-item '+(isActive?'active ':'')+f.status+'" onclick="App.setActive(\''+f.id+'\')">'+
+        '<div class="file-item-header">'+
+        '<span class="file-status-icon">'+(icons[f.status]||'⏳')+'</span>'+
+        '<span class="file-name" title="'+f.file.name+'">'+f.file.name+'</span>'+
+        '<button class="file-remove-btn" onclick="event.stopPropagation();App.removeFile(\''+f.id+'\')" title="Hapus">×</button>'+
+        '</div><div class="file-meta">'+meta+'</div>'+bar+'</div>';
+    }).join('');
+  },
+
+  renderActive: function(){
+    var item=this.active();
+    var tBox=document.getElementById('transcript-output');
+    var lBox=document.getElementById('live-transcript');
+    var lLbl=document.getElementById('live-label');
+    var progSec=document.getElementById('progress-section');
+    var nBox=document.getElementById('notulensi-output');
+    var info=document.getElementById('active-file-info');
+    if(!item){
+      tBox.style.display='block'; lBox.style.display='none';
+      lLbl.style.display='none'; progSec.style.display='none';
+      tBox.textContent='Pilih file dari sidebar.';
+      nBox.textContent='Notulensi belum dibuat.';
+      if(info) info.textContent='Pilih atau upload file audio';
+      return;
+    }
+    if(info) info.textContent=item.file.name;
+    if(item.status==='processing'){
+      tBox.style.display='none'; lBox.style.display='block';
+      lLbl.style.display='flex'; progSec.style.display='block';
+      this.renderProgress(item.progress);
+    }else{
+      tBox.style.display='block'; lBox.style.display='none';
+      lLbl.style.display='none'; progSec.style.display='none';
+      tBox.textContent=item.transcript||(item.status==='error'?'❌ Error: '+item.error:item.status==='cancelled'?'⛔ Dibatalkan.'+(item.transcript?'\n\nTeks terekam:\n'+item.transcript:''):'Belum diproses. Klik "Mulai Transkripsi".');
+    }
+    if(item.notulensi) nBox.innerHTML=this.md(item.notulensi);
+    else nBox.textContent='Notulensi belum dibuat. Klik "Buat Notulensi" setelah transkrip selesai.';
+  },
+
+  renderProgress: function(p){
+    if(!p) return;
+    var fill=document.getElementById('progress-bar-fill');
+    var msg=document.getElementById('progress-message');
+    if(fill&&typeof p.percent==='number'&&p.percent>=0) fill.style.width=p.percent+'%';
+    if(msg) msg.textContent=p.message||'';
+  },
+
+  md: function(t){
+    return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/^### (.+)$/gm,'<h3>$1</h3>').replace(/^## (.+)$/gm,'<h2>$1</h2>').replace(/^# (.+)$/gm,'<h1>$1</h1>')
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/^[-*] (.+)$/gm,'<li>$1</li>').replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>')
+      .replace(/(<li>[\s\S]*?<\/li>\n?)+/g,function(m){ return '<ul>'+m+'</ul>'; })
+      .replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>').replace(/^/,'<p>').replace(/$/,'</p>');
+  },
+
+  showTab: function(tab){
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active',b.dataset.tab===tab); });
+    document.querySelectorAll('.tab-panel').forEach(function(p){ p.classList.toggle('active',p.dataset.panel===tab); });
+  },
+
+  updateUI: function(){
+    var p=this.state.processing;
+    var btn=document.getElementById('btn-transcribe-all');
+    btn.disabled=p; btn.textContent=p?'⏳ Memproses...':'▶ Mulai Transkripsi';
+    document.getElementById('btn-cancel').style.display=p?'inline-flex':'none';
+  },
+
+  copyText: function(which){
+    var item=this.active();
+    var text=which==='transcript'?(item&&item.transcript):(item&&item.notulensi);
+    if(!text){ this.toast('Belum ada teks','warning'); return; }
+    var self=this;
+    if(navigator.clipboard) navigator.clipboard.writeText(text).then(function(){ self.toast('Disalin!','success'); }).catch(function(){ self._copy(text); });
+    else this._copy(text);
+  },
+
+  _copy: function(text){
+    var ta=document.createElement('textarea');
+    ta.value=text; ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); this.toast('Disalin!','success'); }catch(_){ this.toast('Gagal menyalin','error'); }
+    document.body.removeChild(ta);
+  },
+
+  download: function(which){
+    var item=this.active();
+    var text=which==='transcript'?(item&&item.transcript):(item&&item.notulensi);
+    if(!text||!item){ this.toast('Belum ada teks','warning'); return; }
+    var name=item.file.name.replace(/\.[^.]+$/,'')+(which==='transcript'?'_transkrip.txt':'_notulensi.md');
+    var url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));
+    var a=document.createElement('a'); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  toast: function(msg,type){
+    var c=document.getElementById('toast-container');
+    var t=document.createElement('div');
+    t.className='toast toast-'+(type||'info'); t.textContent=msg;
+    c.appendChild(t);
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ t.classList.add('show'); }); });
+    setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){ t.remove(); },300); },3500);
+  },
+};
+
+document.addEventListener('DOMContentLoaded',function(){ App.init(); });
+</script>
+</body>
+</html>
